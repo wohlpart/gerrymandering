@@ -3,7 +3,10 @@ from copy import deepcopy
 
 class util_methods:
     def __init__(self):
-        self.size = 10
+        self.size = 30
+        self.tl = 0
+        self.bl = 0
+        self.br = 0
 
     def dummy_data(self):
         data = []
@@ -21,8 +24,8 @@ class util_methods:
         y_mass = 0
         for i in range(len(data)):
             for j in range(len(data[0])):
-                x_mass += data[i][j] * j
-                y_mass += data[i][j] * i
+                x_mass += data[i][j] * i
+                y_mass += data[i][j] * j
                 total_mass += data[i][j]
         if abs(district_size - total_mass) < 100 or total_mass <= district_size:
             return []
@@ -62,27 +65,14 @@ class util_methods:
         first_data = [deepcopy(row) for row in data]
         second_data = [deepcopy(row) for row in data]
 
-        print(start)
-        print(end)
-        print(y_center)
-        print(x_center)
-
         for i in range(len(data)):
             for j in range(len(data[0])):
-                d = ((j - start[0]) * (end[1] - start[1])) - ((i - start[1]) * (end[0] - start[0]))
+                d = ((i - start[0]) * (end[1] - start[1])) - ((j - start[1]) * (end[0] - start[0]))
                 if d < 0:
                     first_data[i][j] = 0
                 else:
                     second_data[i][j] = 0
-        for d in data:
-            print(d)
-        print()
-        for d in first_data:
-            print(d)
-        print()
-        for d in second_data:
-            print(d)
-        print()
+
         return [self.trim(data, start[0], start[1], end[0], end[1])] + \
                self.shortest_split_line(first_data, district_size) + \
                self.shortest_split_line(second_data, district_size)
@@ -110,7 +100,6 @@ class util_methods:
                 return True
             return False
 
-
     def get_line_len(self, data, x1, y1, x2, y2):
         (x1_new, y1_new), (x2_new, y2_new) = self.trim(data, x1, y1, x2, y2)
         return np.sqrt((x1_new - x2_new) ** 2 + (y1_new - y2_new) ** 2)
@@ -120,8 +109,12 @@ class util_methods:
         x2 = len(data)
         y1 = 0
         y2 = len(data[0])
-        if x == center_x:
-            if x == x2:
+        if int(x) == int(center_x):
+            if int(y) == int(y2):
+                return (x, y1)
+            return (x, y2)
+        if int(y) == int(center_y):
+            if int(x) == int(x2):
                 return (x1, y)
             return (x2, y)
 
@@ -131,13 +124,13 @@ class util_methods:
         for x_pt in [x1, x2]:
             y_pt = round(x_pt * slope + b)
 
-            if (x_pt != x or y_pt != y) and 0 <= y_pt <= y2:
+            if (abs(x_pt - x) > 2 or abs(y_pt - y) > 2) and 0 <= y_pt <= y2:
                 return (x_pt, y_pt)
 
         for y_pt in [y1, y2]:
 
             x_pt = round((y_pt - b) / slope)
-            if (x_pt != x or y_pt != y) and 0 <= x_pt <= x2:
+            if (abs(x_pt - x) > 2 or abs(y_pt - y) > 2) and 0 <= x_pt <= x2:
                 return (x_pt, y_pt)
         return False
 
@@ -200,3 +193,94 @@ class util_methods:
         x2_trim += x_mod
         y2_trim += y_mod
         return (x1_trim, y1_trim), (x2_trim, y2_trim)
+
+    def generate_mapping(self, coordinates, density):
+        dat = []
+        for i in range(self.size):
+            temp = []
+            for j in range(self.size):
+                temp.append(0)
+            dat.append(temp)
+
+        f = open(coordinates, "r")
+        cor = f.read()
+        cor = cor.replace("\"", " ")
+        cor = cor.replace("\'", " ")
+        cor = cor.replace("\t", " ")
+        cor = cor.replace(" ", " ")
+        ls = cor.split("\n")
+
+        vals = {}
+        for line in ls:
+            i = 1
+            lst = line.split(" ")
+            name = lst[0]
+            left = int(lst[i+1] + lst[i+2] + lst[i+3])
+            i = 2
+            right = int(lst[i+5] + lst[i+6] + lst[i+7])
+            i=3
+            up = int(lst[i+9] + lst[i+10] + lst[i+11])
+            i=4
+            down = int(lst[i+13] + lst[i+14] + lst[i+15])
+            vals[name] = [left, right, up, down]
+        x_min = 100000000
+        y_min = 100000000
+        x_max = 0
+        y_max = 0
+        for key in vals.keys():
+            p = vals[key]
+            if p[1] < x_min:
+                x_min = p[1]
+            if p[0] > x_max:
+                x_max = p[0]
+            if p[3] < y_min:
+                y_min = p[3]
+            if p[2] > y_max:
+                y_max = p[2]
+
+        self.tl, self.bl, self.br = [x_max, y_max], [x_max, y_min], [x_min, y_min]
+
+        f = open(density, "r")
+        dens = f.read()
+        lines = dens.split("\n")
+        pop_dens = {}
+        for line in lines:
+            data = line.split(" - ")[1].split(",")
+            name = data[0].split(" ")[0]
+            pop = float(data[2])
+            area = float(data[4].split(".")[0])
+            pop_dens[name] = round(pop/area, 2)
+
+        to_remove = []
+        for c in vals:
+            if c not in pop_dens.keys():
+                to_remove.append(c)
+        for c in to_remove:
+            vals.pop(c)
+
+        for i in range(self.size):
+            for j in range(self.size):
+                place = self.get_cor(i, j)
+                for key in vals.keys():
+                    val = vals[key]
+                    if self.con(place, val):
+                        dat[i][j] = pop_dens[key]
+        return dat
+
+    def get_cor(self, x, y):
+        width = abs(self.bl[0] - self.br[0])
+        height = abs(self.tl[1] - self.bl[1])
+
+        unit_width = width / self.size
+        x_cor = unit_width * x + self.br[0]
+
+        unit_height = height / self.size
+        y_cor = unit_height * y + self.br[1]
+
+        return x_cor, y_cor
+
+    def con(self, place, val):
+        x_cor, y_cor = place
+        west, east, north, south = val
+
+        return east <= x_cor <= west and south <= y_cor <= north
