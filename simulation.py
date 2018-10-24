@@ -1,21 +1,15 @@
 from util_methods import *
 
 util = util_methods()
-#data = util.dummy_data()
 
 data = util.generate_mapping("ohio_cord", "ohio_dens")
 total_pop = 0
 for d in data:
-    print(d)
     for j in d:
         total_pop += j
 district_size = round(total_pop / 16, 2)
 
 lines = util.shortest_split_line(data, district_size)
-
-
-#lines = util.trim(data, 10,7,0,2)
-print(lines)
 
 for line in lines:
     start, end = line

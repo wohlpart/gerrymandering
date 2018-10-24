@@ -3,7 +3,7 @@ from copy import deepcopy
 
 class util_methods:
     def __init__(self):
-        self.size = 30
+        self.size = 50
         self.tl = 0
         self.bl = 0
         self.br = 0
